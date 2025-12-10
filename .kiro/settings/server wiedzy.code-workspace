@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "../../server wiedzy"
+		},
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"kiroAgent.configureMCP": "Enabled",
+		"kfc.views.settings.visible": true,
+		"kfc.views.specs.visible": true,
+		"kfc.views.hooks.visible": true,
+		"kfc.views.steering.visible": true,
+		"kfc.views.mcp.visible": true,
+		"git.ignoreLimitWarning": true
+	},
+	"extensions": {
+		"recommendations": [
+			"heisebaiyun.kiro-for-cc",
+			"github.vscode-pull-request-github"
+		]
+	}
+}

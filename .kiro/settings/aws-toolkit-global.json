@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "profiles": {
+    "125140434314": {
+      "description": "Primary AWS Account - IAM Credential",
+      "region": "eu-west-2",
+      "credentialType": "profile"
+    },
+    "localstack": {
+      "description": "LocalStack Development Environment",
+      "endpoint": "http://localhost.localstack.cloud:4566",
+      "region": "us-east-1",
+      "credentialType": "profile"
+    },
+    "default": {
+      "description": "Default AWS Profile",
+      "region": "eu-west-2",
+      "credentialType": "profile"
+    }
+  },
+  "defaultProfile": "125140434314",
+  "settings": {
+    "telemetry": false,
+    "autoSuggest": true,
+    "showExplorerOnStartup": true,
+    "samCli": {
+      "location": "sam"
+    },
+    "cdk": {
+      "explorerEnabled": true
+    }
+  }
+}
