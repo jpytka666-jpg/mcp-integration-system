@@ -1,0 +1,51 @@
+{
+  "name": "mcp-integration-system",
+  "version": "1.0.0",
+  "description": "Comprehensive MCP orchestration platform for automated assessment workflows",
+  "type": "module",
+  "main": "dist/index.js",
+  "author": "User",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/User/mcp-integration-system.git"
+  },
+  "keywords": [
+    "mcp",
+    "revit",
+    "automation",
+    "assessment",
+    "workflow",
+    "orchestration",
+    "aws",
+    "powerpoint",
+    "nonicatab",
+    "aions"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:unit": "vitest --run src/**/*.test.ts",
+    "test:integration": "vitest --run src/integration/**/*.test.ts",
+    "test:properties": "vitest --run src/**/*-properties.test.ts",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "fast-check": "^3.15.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.0.0",
+    "@aws-sdk/client-dsql": "^3.0.0",
+    "@aws-sdk/client-lambda": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@playwright/test": "^1.57.0"
+  }
+}
