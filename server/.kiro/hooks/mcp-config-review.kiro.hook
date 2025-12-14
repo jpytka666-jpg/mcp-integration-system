@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "MCP Config Review",
+  "description": "Automatically reviews changes to MCP configuration files to ensure they follow the correct schema, have valid server configurations, and maintain consistency with the MCP integration patterns.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/mcp/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this MCP file. Check that: 1) MCP configuration schema is properly validated, 2) Server lifecycle management is handled correctly, 3) Error handling follows project patterns, 4) The code is consistent with existing patterns in src/mcp/types.ts. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "mcp-config-review"
+}

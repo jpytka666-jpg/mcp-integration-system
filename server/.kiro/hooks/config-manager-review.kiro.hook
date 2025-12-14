@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Config Manager Review",
+  "description": "Automatically reviews changes to configuration management files to ensure they follow proper validation patterns, security best practices, and platform-specific adaptations.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/config/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this config file. Check that: 1) Configuration validation returns proper error/warning objects, 2) Security rules for PII handling are followed, 3) Platform-specific adaptations work correctly for Windows, 4) The code is consistent with existing patterns in src/config/types.ts. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "config-manager-review"
+}

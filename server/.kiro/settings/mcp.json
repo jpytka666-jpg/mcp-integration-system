@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-documentation-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search_documentation"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "E:\\server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "read_file",
+        "list_directory",
+        "read_text_file",
+        "list_allowed_directories",
+        "create_directory"
+      ]
+    },
+    "windows-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "C:\\Users\\User\\AppData\\Roaming\\Claude\\Claude Extensions\\ant.dir.cursortouch.windows-mcp",
+        "run",
+        "main.py"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "State-Tool",
+        "Powershell-Tool",
+        "Clipboard-Tool",
+        "Launch-Tool",
+        "Scrape-Tool"
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "TypeScript Types Review",
+  "description": "Automatically reviews changes to type definition files to ensure they follow TypeScript best practices, have proper exports, and maintain consistency across the codebase.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/types.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this types file. Check that: 1) Types are properly exported for use in other modules, 2) Interfaces and type aliases are well-documented, 3) Union types and enums are used appropriately, 4) Types follow the project naming conventions. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "typescript-types-review"
+}

@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Hooks Code Review",
+  "description": "Automatically reviews changes to hook-related files in src/hooks/ to ensure they follow project standards, have proper TypeScript types, and maintain consistency with the existing hook architecture.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/hooks/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this hooks file. Check that: 1) TypeScript types are properly defined and exported, 2) The code follows SOLID principles, 3) Error handling is implemented correctly, 4) The code is consistent with existing patterns in src/hooks/types.ts and other hook files. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "hooks-code-review"
+}

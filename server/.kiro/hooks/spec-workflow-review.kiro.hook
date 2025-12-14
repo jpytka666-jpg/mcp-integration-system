@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Spec Workflow Review",
+  "description": "Automatically reviews changes to spec workflow files to ensure they follow EARS format for requirements, proper design document structure, and task generation patterns.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/spec/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this spec file. Check that: 1) EARS format validation is properly implemented, 2) Design document sections are correctly structured, 3) Task generation follows the checkbox format with requirement references, 4) The code is consistent with existing patterns in src/spec/types.ts. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "spec-workflow-review"
+}

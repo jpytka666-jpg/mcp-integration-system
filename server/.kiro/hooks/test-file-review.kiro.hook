@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Test File Review",
+  "description": "Automatically reviews changes to test files to ensure they follow Vitest patterns, have proper test coverage, and maintain consistency with the testing strategy.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.test.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this test file. Check that: 1) Tests use Vitest patterns correctly (describe, it, expect), 2) Test setup and teardown are properly handled, 3) Tests cover core functionality without over-testing edge cases, 4) Mocks are used appropriately and not to bypass real functionality. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "test-file-review"
+}

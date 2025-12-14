@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Steering File Review",
+  "description": "Automatically reviews changes to steering files to ensure they follow the correct format, have valid front-matter, and maintain consistency with the steering system patterns.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/steering/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the changes made to this steering file. Check that: 1) Front-matter parsing is handled correctly, 2) Inclusion modes (always, conditional, manual) are properly supported, 3) File reference resolution works correctly, 4) The code is consistent with existing patterns in src/steering/types.ts. Suggest improvements if needed."
+  },
+  "workspaceFolderName": "server",
+  "shortName": "steering-file-review"
+}

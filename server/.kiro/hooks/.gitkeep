@@ -1,0 +1,2 @@
+# This directory contains Kiro agent hooks
+# Hooks are markdown files that define automated actions triggered by IDE events
