@@ -43,7 +43,11 @@
         "Powershell-Tool",
         "Clipboard-Tool",
         "Launch-Tool",
-        "Scrape-Tool"
+        "Scrape-Tool",
+        "Type-Tool",
+        "Key-Tool",
+        "Key-Tool",
+        "Shortcut-Tool"
       ]
     }
   }

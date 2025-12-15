@@ -446,7 +446,8 @@ export class SecurityComplianceFramework {
       actor: { type: 'system', id: 'security-framework' },
       resource: { type: 'config', id: constraint.id, name: constraint.name },
       outcome: 'success',
-      details: { constraintType: constraint.type, enforcement: constraint.enforcement }
+      details: { constraintType: constraint.type, enforcement: constraint.enforcement },
+      securityContext: {}
     });
   }
 
@@ -571,7 +572,8 @@ export class SecurityComplianceFramework {
       actor: { type: 'system', id: 'security-framework' },
       resource: { type: 'config', id: policy.id, name: policy.name },
       outcome: 'success',
-      details: { scope: policy.scope, rulesCount: policy.rules.length }
+      details: { scope: policy.scope, rulesCount: policy.rules.length },
+      securityContext: {}
     });
   }
 
@@ -667,7 +669,8 @@ export class SecurityComplianceFramework {
         action: finalAction,
         violationsCount: violations.length,
         appliedRulesCount: appliedRules.length
-      }
+      },
+      securityContext: {}
     });
 
     return result;
@@ -922,7 +925,8 @@ export class SecurityComplianceFramework {
       actor: { type: 'system', id: 'security-framework' },
       resource: { type: 'mcp_server', id: serverId },
       outcome: 'success',
-      details: { isolationLevel: context.isolationLevel }
+      details: { isolationLevel: context.isolationLevel },
+      securityContext: {}
     });
   }
 

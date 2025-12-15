@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*-properties.test.ts'],
     exclude: ['node_modules', 'dist'],
     testTimeout: 30000, // 30 seconds for property-based tests
     hookTimeout: 30000,

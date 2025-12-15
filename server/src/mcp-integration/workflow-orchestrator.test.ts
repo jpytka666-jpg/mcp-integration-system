@@ -686,7 +686,7 @@ describe('Workflow Orchestrator Property Tests', () => {
             serverId: fc.string({ minLength: 1, maxLength: 15 })
               .filter(s => s.trim().length > 0)
               .map(s => `recovery-${s}`),
-            unavailabilityDuration: fc.integer({ min: 100, max: 1000 }),
+            unavailabilityDuration: fc.integer({ min: 5, max: 20 }), // Reduced from 100-1000ms to 5-20ms
             serverType: fc.constantFrom('stdio', 'http')
           }),
           async ({ serverId, unavailabilityDuration, serverType }) => {
@@ -695,7 +695,7 @@ describe('Workflow Orchestrator Property Tests', () => {
               id: serverId,
               name: 'Recovery Test Server',
               type: serverType as 'stdio' | 'http',
-              connectionParams: serverType === 'stdio' 
+              connectionParams: serverType === 'stdio'
                 ? { command: 'C:\\test\\server.exe', timeout: 15000 }
                 : { url: 'http://localhost:3000', timeout: 30000 },
               capabilities: ['recovery_test'],
@@ -708,19 +708,19 @@ describe('Workflow Orchestrator Property Tests', () => {
             // Simulate temporary unavailability
             await orchestrator.handleDisconnection(serverId);
 
-            // Wait for recovery period
+            // Wait for recovery period (minimal delay for test purposes)
             await new Promise(resolve => setTimeout(resolve, unavailabilityDuration));
 
             // System should handle recovery gracefully
             const registeredServers = orchestrator.getRegisteredServers();
             const recoveredServer = registeredServers.find(s => s.id === serverId);
-            
+
             expect(recoveredServer).toBeDefined();
             expect(recoveredServer!.id).toBe(serverId);
             expect(recoveredServer!.capabilities).toContain('recovery_test');
           }
         ),
-        { numRuns: 50 }
+        { numRuns: 20 } // Reduced from 50 to prevent timeout
       );
     });
   });

@@ -142,6 +142,21 @@ export type {
   DeploymentResult
 } from './configuration-manager.js';
 
+// NonicaTab Integration
+export {
+  NonicaTabMCPIntegration,
+  NonicaTabToolResult,
+  NonicaTabIntegration
+} from './nonicatab-integration.js';
+
+export {
+  EnhancedNonicaTabIntegration,
+  createEnhancedNonicaTabIntegration,
+  EnhancedNonicaTabConfig,
+  EnhancedToolResult,
+  BatchResult
+} from './enhanced-nonicatab-integration.js';
+
 // Types (avoiding conflicts)
 export type {
   MCPServerDefinition,

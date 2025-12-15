@@ -582,16 +582,21 @@ export class MonitoringLoggingSystem {
       return existing;
     }
 
-    const correlated: CorrelatedError = {
+    const tempCorrelated: CorrelatedError = {
       id: this.generateId('corr'),
       correlationId,
       primaryError: error,
       relatedErrors: [],
       affectedComponents: [error.source.component],
-      rootCause: this.analyzeRootCause({ primaryError: error, relatedErrors: [] } as CorrelatedError),
+      rootCause: undefined,
       suggestedResolution: undefined,
       timestamp: new Date(),
       resolved: false
+    };
+
+    const correlated: CorrelatedError = {
+      ...tempCorrelated,
+      rootCause: this.analyzeRootCause(tempCorrelated)
     };
 
     correlated.suggestedResolution = this.suggestResolution(correlated);
