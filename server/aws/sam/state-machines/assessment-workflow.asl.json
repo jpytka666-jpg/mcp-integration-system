@@ -1,0 +1,177 @@
+{
+  "Comment": "MCP Assessment Workflow - Revit to PowerPoint Pipeline",
+  "StartAt": "ValidateAssessment",
+  "States": {
+    "ValidateAssessment": {
+      "Type": "Task",
+      "Resource": "${AssessmentValidatorArn}",
+      "Parameters": {
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "input.$": "$.input"
+      },
+      "ResultPath": "$.validation",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "CheckValidation"
+    },
+
+    "CheckValidation": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.validation.valid",
+          "BooleanEquals": true,
+          "Next": "ExtractRevitData"
+        }
+      ],
+      "Default": "HandleValidationError"
+    },
+
+    "HandleValidationError": {
+      "Type": "Task",
+      "Resource": "${ErrorHandlerArn}",
+      "Parameters": {
+        "errorType": "VALIDATION_ERROR",
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "validation.$": "$.validation"
+      },
+      "End": true
+    },
+
+    "ExtractRevitData": {
+      "Type": "Task",
+      "Resource": "${NonicaTabExtractorArn}",
+      "Parameters": {
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "revitFile.$": "$.input.revitFile",
+        "extractionOptions.$": "$.input.extractionOptions"
+      },
+      "ResultPath": "$.extraction",
+      "Retry": [
+        {
+          "ErrorEquals": ["CircuitBreakerOpen"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 1
+        },
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "RetryableError"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "TransformData"
+    },
+
+    "TransformData": {
+      "Type": "Task",
+      "Resource": "${DataTransformerArn}",
+      "Parameters": {
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "extractedData.$": "$.extraction.data",
+        "transformOptions.$": "$.input.transformOptions"
+      },
+      "ResultPath": "$.transformation",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "GenerateOutput"
+    },
+
+    "GenerateOutput": {
+      "Type": "Task",
+      "Resource": "${OutputGeneratorArn}",
+      "Parameters": {
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "transformedData.$": "$.transformation.data",
+        "outputFormat.$": "$.input.outputFormat",
+        "templateId.$": "$.input.templateId"
+      },
+      "ResultPath": "$.output",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "WorkflowComplete"
+    },
+
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "${ErrorHandlerArn}",
+      "Parameters": {
+        "errorType": "WORKFLOW_ERROR",
+        "tenantId.$": "$.tenantId",
+        "assessmentId.$": "$.assessmentId",
+        "correlationId.$": "$.correlationId",
+        "error.$": "$.error"
+      },
+      "ResultPath": "$.errorHandling",
+      "Next": "WorkflowFailed"
+    },
+
+    "WorkflowFailed": {
+      "Type": "Fail",
+      "Error": "WorkflowExecutionFailed",
+      "Cause": "Assessment workflow failed - see error details"
+    },
+
+    "WorkflowComplete": {
+      "Type": "Succeed",
+      "OutputPath": "$"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+# SAM Configuration for MCP Integration System
+
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "mcp-integration-system"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "mcp-integration-system"
+region = "eu-west-2"
+profile = "125140434314"
+parameter_overrides = "Environment=\"prod\" TenantIsolationEnabled=\"true\""
+
+[prod]
+[prod.deploy.parameters]
+stack_name = "mcp-integration-system-prod"
+s3_prefix = "mcp-integration-system-prod"
+parameter_overrides = "Environment=\"prod\" TenantIsolationEnabled=\"true\""
+tags = "Project=\"MCP-Integration-System\" Environment=\"prod\""
+
+[staging]
+[staging.deploy.parameters]
+stack_name = "mcp-integration-system-staging"
+s3_prefix = "mcp-integration-system-staging"
+parameter_overrides = "Environment=\"staging\" TenantIsolationEnabled=\"true\""
+tags = "Project=\"MCP-Integration-System\" Environment=\"staging\""
+
+[dev]
+[dev.deploy.parameters]
+stack_name = "mcp-integration-system-dev"
+s3_prefix = "mcp-integration-system-dev"
+parameter_overrides = "Environment=\"dev\" TenantIsolationEnabled=\"false\""
+confirm_changeset = false
+tags = "Project=\"MCP-Integration-System\" Environment=\"dev\""

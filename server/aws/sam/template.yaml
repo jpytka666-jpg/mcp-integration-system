@@ -1,0 +1,509 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MCP Integration System - Production SAM Template
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        NODE_OPTIONS: '--enable-source-maps'
+        LOG_LEVEL: INFO
+        POWERTOOLS_SERVICE_NAME: mcp-integration
+        POWERTOOLS_METRICS_NAMESPACE: MCP/Integration
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+
+  TenantIsolationEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+Resources:
+  # ============================================================================
+  # KMS Key for Tenant Data Encryption
+  # ============================================================================
+  TenantEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for MCP tenant data encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow Lambda Service
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+      Tags:
+        - Key: Project
+          Value: MCP-Integration-System
+        - Key: Environment
+          Value: !Ref Environment
+
+  TenantEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/mcp-tenant-key-${Environment}'
+      TargetKeyId: !Ref TenantEncryptionKey
+
+  # ============================================================================
+  # S3 Bucket for Assessment Data
+  # ============================================================================
+  AssessmentDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'mcp-assessment-${AWS::AccountId}-${AWS::Region}-${Environment}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref TenantEncryptionKey
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToIA
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+            ExpirationInDays: 365
+      Tags:
+        - Key: Project
+          Value: MCP-Integration-System
+
+  # ============================================================================
+  # Lambda Layer for Common Dependencies
+  # ============================================================================
+  CommonDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'mcp-common-layer-${Environment}'
+      Description: Common utilities - AWS SDK, logging, metrics
+      ContentUri: layers/common/
+      CompatibleRuntimes:
+        - nodejs20.x
+        - nodejs18.x
+      RetentionPolicy: Retain
+
+  # ============================================================================
+  # IAM Role for Lambda Functions
+  # ============================================================================
+  MCPLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'mcp-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: MCPIntegrationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3Access
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt AssessmentDataBucket.Arn
+                  - !Sub '${AssessmentDataBucket.Arn}/*'
+              - Sid: KMSAccess
+                Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !GetAtt TenantEncryptionKey.Arn
+              - Sid: StepFunctionsAccess
+                Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:DescribeExecution
+                  - states:StopExecution
+                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:mcp-*'
+              - Sid: CloudWatchMetrics
+                Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': 'MCP/Integration'
+
+  # ============================================================================
+  # API Gateway
+  # ============================================================================
+  MCPApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'mcp-integration-api-${Environment}'
+      StageName: !Ref Environment
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","tenantId":"$context.authorizer.tenantId"}'
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Tenant-ID,X-Correlation-ID'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: TenantAuthorizer
+        Authorizers:
+          TenantAuthorizer:
+            FunctionArn: !GetAtt TenantAuthorizerFunction.Arn
+            Identity:
+              Headers:
+                - Authorization
+              ReauthorizeEvery: 300
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/mcp-integration-${Environment}'
+      RetentionInDays: 30
+
+  # ============================================================================
+  # Lambda Functions
+  # ============================================================================
+
+  # Tenant Authorizer
+  TenantAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-tenant-authorizer-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/tenant-authorizer/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Layers:
+        - !Ref CommonDependenciesLayer
+      Environment:
+        Variables:
+          TENANT_ISOLATION_ENABLED: !Ref TenantIsolationEnabled
+          JWT_SECRET_ARN: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:mcp/jwt-secret'
+
+  # Assessment Validator
+  AssessmentValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-assessment-validator-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/assessment-validator/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Timeout: 60
+      MemorySize: 1024
+      Layers:
+        - !Ref CommonDependenciesLayer
+      Events:
+        ValidateAssessment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MCPApi
+            Path: /assessments/validate
+            Method: POST
+
+  # NonicaTab Extractor
+  NonicaTabExtractorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-nonicatab-extractor-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/nonicatab-extractor/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Timeout: 120
+      MemorySize: 2048
+      Layers:
+        - !Ref CommonDependenciesLayer
+      Environment:
+        Variables:
+          CIRCUIT_BREAKER_THRESHOLD: '5'
+          RETRY_MAX_ATTEMPTS: '3'
+          RETRY_BASE_DELAY_MS: '100'
+
+  # Data Transformer
+  DataTransformerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-data-transformer-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/data-transformer/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Timeout: 60
+      MemorySize: 1024
+      Layers:
+        - !Ref CommonDependenciesLayer
+
+  # Output Generator
+  OutputGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-output-generator-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/output-generator/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Timeout: 120
+      MemorySize: 2048
+      Layers:
+        - !Ref CommonDependenciesLayer
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref AssessmentDataBucket
+
+  # Error Handler
+  ErrorHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'mcp-error-handler-${Environment}'
+      Handler: index.handler
+      CodeUri: functions/error-handler/
+      Role: !GetAtt MCPLambdaRole.Arn
+      Layers:
+        - !Ref CommonDependenciesLayer
+
+  # ============================================================================
+  # Step Functions State Machine
+  # ============================================================================
+  AssessmentWorkflowStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub 'mcp-assessment-workflow-${Environment}'
+      DefinitionUri: state-machines/assessment-workflow.asl.json
+      DefinitionSubstitutions:
+        AssessmentValidatorArn: !GetAtt AssessmentValidatorFunction.Arn
+        NonicaTabExtractorArn: !GetAtt NonicaTabExtractorFunction.Arn
+        DataTransformerArn: !GetAtt DataTransformerFunction.Arn
+        OutputGeneratorArn: !GetAtt OutputGeneratorFunction.Arn
+        ErrorHandlerArn: !GetAtt ErrorHandlerFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AssessmentValidatorFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref NonicaTabExtractorFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref DataTransformerFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref OutputGeneratorFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ErrorHandlerFunction
+      Tracing:
+        Enabled: true
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+
+  StateMachineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/stepfunctions/mcp-assessment-workflow-${Environment}'
+      RetentionInDays: 30
+
+  # ============================================================================
+  # EventBridge for Workflow Events
+  # ============================================================================
+  MCPEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'mcp-integration-events-${Environment}'
+
+  WorkflowCompletionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'mcp-workflow-completion-${Environment}'
+      EventBusName: !Ref MCPEventBus
+      EventPattern:
+        source:
+          - mcp.integration
+        detail-type:
+          - Assessment Workflow Completed
+      State: ENABLED
+      Targets:
+        - Id: LogWorkflowCompletion
+          Arn: !GetAtt WorkflowEventsLogGroup.Arn
+
+  WorkflowEventsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/events/mcp-workflow-events-${Environment}'
+      RetentionInDays: 30
+
+  # ============================================================================
+  # CloudWatch Dashboard
+  # ============================================================================
+  MCPDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'MCP-Integration-${Environment}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda Invocations",
+                "region": "${AWS::Region}",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${AssessmentValidatorFunction}"],
+                  [".", ".", ".", "${NonicaTabExtractorFunction}"],
+                  [".", ".", ".", "${DataTransformerFunction}"],
+                  [".", ".", ".", "${OutputGeneratorFunction}"]
+                ],
+                "period": 60,
+                "stat": "Sum"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda Errors",
+                "region": "${AWS::Region}",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "${AssessmentValidatorFunction}"],
+                  [".", ".", ".", "${NonicaTabExtractorFunction}"],
+                  [".", ".", ".", "${DataTransformerFunction}"],
+                  [".", ".", ".", "${OutputGeneratorFunction}"]
+                ],
+                "period": 60,
+                "stat": "Sum"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "Step Functions Executions",
+                "region": "${AWS::Region}",
+                "metrics": [
+                  ["AWS/States", "ExecutionsStarted", "StateMachineArn", "${AssessmentWorkflowStateMachine}"],
+                  [".", "ExecutionsSucceeded", ".", "."],
+                  [".", "ExecutionsFailed", ".", "."]
+                ],
+                "period": 60,
+                "stat": "Sum"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "API Gateway Requests",
+                "region": "${AWS::Region}",
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiName", "mcp-integration-api-${Environment}"],
+                  [".", "4XXError", ".", "."],
+                  [".", "5XXError", ".", "."]
+                ],
+                "period": 60,
+                "stat": "Sum"
+              }
+            }
+          ]
+        }
+
+  # ============================================================================
+  # CloudWatch Alarms
+  # ============================================================================
+  HighErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'MCP-HighErrorRate-${Environment}'
+      AlarmDescription: High error rate in MCP Integration Lambda functions
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AssessmentValidatorFunction
+
+  WorkflowFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'MCP-WorkflowFailures-${Environment}'
+      AlarmDescription: Step Functions workflow failures
+      MetricName: ExecutionsFailed
+      Namespace: AWS/States
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref AssessmentWorkflowStateMachine
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub 'https://${MCPApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub 'MCP-ApiUrl-${Environment}'
+
+  AssessmentBucketName:
+    Description: Assessment Data Bucket
+    Value: !Ref AssessmentDataBucket
+    Export:
+      Name: !Sub 'MCP-AssessmentBucket-${Environment}'
+
+  StateMachineArn:
+    Description: Assessment Workflow State Machine ARN
+    Value: !Ref AssessmentWorkflowStateMachine
+    Export:
+      Name: !Sub 'MCP-StateMachineArn-${Environment}'
+
+  EventBusArn:
+    Description: MCP Event Bus ARN
+    Value: !GetAtt MCPEventBus.Arn
+    Export:
+      Name: !Sub 'MCP-EventBusArn-${Environment}'
+
+  TenantEncryptionKeyArn:
+    Description: Tenant Encryption KMS Key ARN
+    Value: !GetAtt TenantEncryptionKey.Arn
+    Export:
+      Name: !Sub 'MCP-TenantKeyArn-${Environment}'
