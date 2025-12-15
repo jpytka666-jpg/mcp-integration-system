@@ -157,6 +157,38 @@ export {
   BatchResult
 } from './enhanced-nonicatab-integration.js';
 
+// Multi-Tenant Isolation
+export {
+  MCPTenantIsolationService,
+  createTenantIsolationService,
+  tenantIsolationService
+} from './tenant-isolation.js';
+
+export type {
+  TenantIsolationService,
+  TenantValidationResult,
+  UsageLimitResult
+} from './tenant-isolation.js';
+
+// Lambda Authorizer
+export {
+  LambdaAuthorizer,
+  createLambdaAuthorizer,
+  generateTestJWT,
+  handler as lambdaAuthorizerHandler
+} from './lambda-authorizer.js';
+
+export type {
+  AuthorizerEvent,
+  AuthorizerResult,
+  IAMPolicyDocument,
+  IAMStatement,
+  AuthorizerContext,
+  JWTPayload,
+  TokenValidationResult,
+  AuthorizerConfig
+} from './lambda-authorizer.js';
+
 // Types (avoiding conflicts)
 export type {
   MCPServerDefinition,
@@ -198,5 +230,14 @@ export type {
   ProcessingResult,
   StorageResult,
   AnalysisResult,
-  MonitoringMetrics
+  MonitoringMetrics,
+  // Multi-Tenant Types
+  TenantContext,
+  TenantRole,
+  TenantPermission,
+  TenantSubscription,
+  TenantLimits,
+  TenantSettings,
+  TenantIsolationPolicy,
+  TenantUsageMetrics
 } from './types.js';

@@ -459,3 +459,106 @@ export interface MonitoringMetrics {
     value: string;
   }>;
 }
+
+// ==================== Multi-Tenant Types ====================
+
+export interface TenantContext {
+  tenantId: string;
+  tenantName: string;
+  userId: string;
+  roles: TenantRole[];
+  permissions: TenantPermission[];
+  subscription: TenantSubscription;
+  settings: TenantSettings;
+  metadata: Record<string, any>;
+}
+
+export interface TenantRole {
+  id: string;
+  name: string;
+  permissions: TenantPermission[];
+  scope: 'global' | 'project' | 'resource';
+}
+
+export type TenantPermission =
+  | 'read:assessments'
+  | 'write:assessments'
+  | 'delete:assessments'
+  | 'read:workflows'
+  | 'write:workflows'
+  | 'execute:workflows'
+  | 'read:reports'
+  | 'write:reports'
+  | 'admin:tenant'
+  | 'admin:users'
+  | 'admin:billing';
+
+export interface TenantSubscription {
+  plan: 'free' | 'starter' | 'professional' | 'enterprise';
+  status: 'active' | 'trial' | 'suspended' | 'cancelled';
+  limits: TenantLimits;
+  features: string[];
+  expiresAt?: Date;
+}
+
+export interface TenantLimits {
+  maxAssessmentsPerMonth: number;
+  maxWorkflowsPerMonth: number;
+  maxStorageGB: number;
+  maxConcurrentWorkflows: number;
+  maxUsersPerTenant: number;
+  maxProjectsPerTenant: number;
+}
+
+export interface TenantSettings {
+  defaultOutputFormat: 'powerpoint' | 'pdf' | 'excel';
+  defaultLanguage: string;
+  timezone: string;
+  notificationsEnabled: boolean;
+  retentionDays: number;
+  customBranding?: {
+    logoUrl?: string;
+    primaryColor?: string;
+    companyName?: string;
+  };
+}
+
+export interface TenantIsolationPolicy {
+  tenantId: string;
+  dataIsolation: 'strict' | 'shared' | 'hybrid';
+  encryptionKeyId: string;
+  allowedRegions: string[];
+  networkPolicy: {
+    allowedIPs: string[];
+    blockedIPs: string[];
+    vpcEndpoints?: string[];
+  };
+  auditLevel: 'minimal' | 'standard' | 'comprehensive';
+}
+
+export interface TenantUsageMetrics {
+  tenantId: string;
+  period: {
+    start: Date;
+    end: Date;
+  };
+  assessments: {
+    count: number;
+    successRate: number;
+    avgDurationMs: number;
+  };
+  workflows: {
+    count: number;
+    successRate: number;
+    avgSteps: number;
+  };
+  storage: {
+    usedGB: number;
+    limitGB: number;
+  };
+  api: {
+    totalRequests: number;
+    errorRate: number;
+    avgLatencyMs: number;
+  };
+}

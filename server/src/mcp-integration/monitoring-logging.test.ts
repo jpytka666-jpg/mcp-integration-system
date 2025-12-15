@@ -727,7 +727,8 @@ describe('Monitoring and Logging System Property Tests', () => {
           const actualDuration = stopTimer();
 
           // Assert: Duration should be close to expected (with generous tolerance for CI/slow systems)
-          expect(actualDuration).toBeGreaterThanOrEqual(expectedDuration);
+          // Windows timers can return slightly early (within ~5ms), so allow small negative tolerance
+          expect(actualDuration).toBeGreaterThanOrEqual(expectedDuration - 5);
           expect(actualDuration).toBeLessThan(expectedDuration + 150); // 150ms tolerance for slow systems
 
           // Assert: Metric should be recorded
